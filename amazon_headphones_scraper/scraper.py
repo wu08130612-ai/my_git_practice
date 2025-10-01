@@ -70,6 +70,7 @@ def parse_sample_html(html: str):
         "price": price_match.group(1).strip() if price_match else None,
         "rating": to_float(rating_match.group(1)) if rating_match else None,
         "reviews_count": to_int(reviews_match.group(1)) if reviews_match else None,
+        "product_url": f"file://{SAMPLE_FILE}",
     }
 
 
@@ -148,6 +149,7 @@ def parse_product_page(html: str):
         "price": price,
         "rating": to_float(rating) if rating else None,
         "reviews_count": to_int(reviews_count) if reviews_count else None,
+        "product_url": None,
     }
     if not result["title"]:
         return None
@@ -176,6 +178,7 @@ def run_live():
             continue
         data = parse_product_page(html)
         if data:
+            data["product_url"] = url
             print("[live] Parsed:")
             print(data)
             return data
@@ -186,6 +189,19 @@ def run_live():
     return run_sample()
 
 
+def write_csv(rows, out_path: str):
+    fieldnames = ["product_url", "title", "price", "rating", "reviews_count"]
+    try:
+        with open(out_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for r in rows:
+                writer.writerow({k: r.get(k) for k in fieldnames})
+        print(f"[csv] Written: {out_path}")
+    except Exception as e:
+        print(f"[csv] Write failed: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Amazon Headphones Scraper (demo)")
     parser.add_argument("--mode", choices=["sample", "live"], default="sample", help="Run mode")
@@ -193,7 +209,11 @@ def main():
     args = parser.parse_args()
 
     if args.mode == "sample":
-        run_sample()
+        data = run_sample()
+    else:
+        data = run_live()
+    if data:
+        write_csv([data], args.out)
     else:
         run_live()
 
